@@ -1,0 +1,422 @@
+C51 COMPILER V9.59.0.0   MAIN                                                              09/08/2018 22:44:32 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: D:\Keil_v5_C51\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\
+                    -main.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include <reg52.h>
+   2          
+   3          /*Variable type definition*/
+   4          #define uint8_t  unsigned char
+   5          #define uint16_t unsigned int 
+   6          /*Numerical definition*/
+   7          #define SET       1
+   8          #define RESET     0
+   9          #define R_GROUP_1 0
+  10          #define R_GROUP_2 1
+  11          #define C_GROUP_1 3
+  12          #define C_GROUP_2 4
+  13          /*Register bits declaration group*/
+  14          
+  15          /*LED registerbits declaration*/
+  16          sbit LEDR  = P1^3;
+  17          sbit LEDY  = P1^4;
+  18          sbit LEDG  = P1^5;
+  19          
+  20          /*Row registerbit declaration*/
+  21          sbit R0   = P2^0;
+  22          sbit R1   = P2^1;
+  23          sbit R2   = P2^2;
+  24          sbit R3   = P0^1;
+  25          sbit R4   = P0^0;
+  26          sbit R5   = P1^0;
+  27          sbit R6   = P1^1;
+  28          sbit R7   = P1^1;
+  29          
+  30          /*Column registerbit declaration*/
+  31          sbit C0   = P2^3;
+  32          sbit C1   = P2^4;
+  33          sbit C2   = P2^5;
+  34          sbit C3   = P2^6;
+  35          sbit C4   = P2^7;
+  36          sbit C5   = P3^2;
+  37          sbit C6   = P1^7;
+  38          sbit C7   = P1^6;
+  39          sbit C8   = P0^7;
+  40          sbit C9   = P0^6;
+  41          sbit C10  = P0^2;
+  42          sbit C11  = P0^3;
+  43          sbit C12  = P0^4;
+  44          sbit C13  = P0^5;
+  45          
+  46          /*Private function declaration*/
+  47          void sys_setup(void);
+  48          void sys_loop(void);
+  49          void delay_ms(uint16_t i);
+  50          void uart1_init(void);
+  51          void uart1_intrrupt(void);
+  52          void uart1_senddata(uint8_t dat);
+  53          void uart1_sendstring(uint8_t *s);
+  54          void keyboard_scan(void);
+C51 COMPILER V9.59.0.0   MAIN                                                              09/08/2018 22:44:32 PAGE 2   
+
+  55          void keyboard_send(uint8_t row,uint8_t col);
+  56          void key_setgroup(uint8_t pos,uint8_t state);
+  57          void key_readgroup(uint8_t group,uint8_t * value);
+  58          /*Private variable definition*/
+  59          bit B_TX1_Busy;
+  60          bit capslock = 1;
+  61          /*========================== application ==============================*/
+  62          /**
+  63           * @brief  Application entry point.
+  64           *
+  65           * @param   void.
+  66           *
+  67           * @return  none.
+  68           *
+  69           */
+  70          void main()
+  71          {
+  72   1        sys_setup();
+  73   1        while(1)
+  74   1        {
+  75   2          sys_loop();
+  76   2        }
+  77   1      }
+  78          /**
+  79           * @brief  Application setup function.
+  80           *
+  81           * @param   void.
+  82           *
+  83           * @return  none.
+  84           *
+  85           */
+  86          void sys_setup(void)
+  87          {
+  88   1        uart1_init();
+  89   1        LEDG  = RESET;
+  90   1      }
+  91          /**
+  92           * @brief  Application loop function.
+  93           *
+  94           * @param   void.
+  95           *
+  96           * @return  none.
+  97           *
+  98           */
+  99          void sys_loop(void)
+ 100          {
+ 101   1        keyboard_scan();
+ 102   1      }
+ 103          /*========================== delay_ms ===============================*/
+ 104          /**
+ 105           * @brief   delay_ms function.
+ 106           *
+ 107           * @param   i the value of delay ms.
+ 108           *
+ 109           * @return  none.
+ 110           *
+ 111           */
+ 112          void delay_ms(uint16_t i)
+ 113          {
+ 114   1        uint16_t x,y;
+ 115   1        for(x = 0; x < i;x++)
+ 116   1          for(y = 120;y > 0;y--);
+C51 COMPILER V9.59.0.0   MAIN                                                              09/08/2018 22:44:32 PAGE 3   
+
+ 117   1      }
+ 118          /*======================== keyboard ================================*/
+ 119          /**
+ 120           * @brief   keyboard scan function.
+ 121           *
+ 122           * @param   void.
+ 123           *
+ 124           * @return  none.
+ 125           *
+ 126           */
+ 127          void keyboard_scan(void)
+ 128          {
+ 129   1        static uint8_t row,col;
+ 130   1        key_setgroup(C_GROUP_1,SET);
+ 131   1        key_setgroup(R_GROUP_1,RESET);
+ 132   1        key_readgroup(C_GROUP_1,&col);
+ 133   1        if(col != 0xff)
+ 134   1        {
+ 135   2          delay_ms(50);
+ 136   2          key_setgroup(R_GROUP_1,SET);
+ 137   2          key_setgroup(C_GROUP_1,RESET);
+ 138   2          key_readgroup(R_GROUP_1,&row);
+ 139   2          if(row != 0xff)
+ 140   2          {
+ 141   3            LEDY = RESET;
+ 142   3            keyboard_send(row,col);
+ 143   3            while(row != 0xff)
+ 144   3            {
+ 145   4              key_readgroup(R_GROUP_1,&row);
+ 146   4            }
+ 147   3            LEDY = SET;
+ 148   3          }
+ 149   2        }
+ 150   1        key_setgroup(C_GROUP_2,SET);
+ 151   1        key_setgroup(R_GROUP_2,RESET);
+ 152   1        key_readgroup(C_GROUP_2,&col);
+ 153   1        if(col != 0xff)
+ 154   1        {
+ 155   2          delay_ms(50);
+ 156   2          key_setgroup(R_GROUP_2,SET);
+ 157   2          key_setgroup(C_GROUP_2,RESET);
+ 158   2          key_readgroup(R_GROUP_2,&row);
+ 159   2          if(row != 0xff)
+ 160   2          {
+ 161   3            LEDY = RESET;
+ 162   3            keyboard_send(row,col);
+ 163   3            while(row != 0xff)
+ 164   3            {
+ 165   4              key_readgroup(R_GROUP_2,&row);
+ 166   4            }
+ 167   3            LEDY = SET;
+ 168   3          }
+ 169   2        }
+ 170   1      }
+ 171          /**
+ 172           * @brief   keyboard message send function.
+ 173           *
+ 174           * @param   row the row of key map.
+ 175           *          col the col of key map.
+ 176           *
+ 177           * @return  none.
+ 178           *
+C51 COMPILER V9.59.0.0   MAIN                                                              09/08/2018 22:44:32 PAGE 4   
+
+ 179           */
+ 180          void keyboard_send(uint8_t row,uint8_t col)
+ 181          {
+ 182   1        static uint8_t key_map1[4][10] = {
+ 183   1          'q','w','e','r','t','y','u','i','o','p',
+ 184   1          ' ','a','s','d','f','g','h','j','k','l',
+ 185   1          '\n',0x01,0x02,'z','x','c','v','b','n','m',
+ 186   1        };
+ 187   1        static uint8_t key_map2[5][4] = {
+ 188   1          '7','8','9','-',
+ 189   1          '4','5','6','+',
+ 190   1          '1','2','3','/',
+ 191   1          '0','.',0x03,'*',
+ 192   1          0x04,0x06,0x05,0x07,
+ 193   1        };
+ 194   1        if((row == 2)&&(col == 2))
+ 195   1        {
+ 196   2          capslock = ~capslock;
+ 197   2          LEDR = capslock;
+ 198   2        }
+ 199   1        if((row < 3)&&(col < 10))
+ 200   1        {
+ 201   2          if((96 < key_map1[row][col] )&&(key_map1[row][col] < 123))
+ 202   2          {
+ 203   3            uart1_senddata(key_map1[row][col] - 32 * ~capslock);
+ 204   3          }
+ 205   2          else
+ 206   2          {
+ 207   3            uart1_senddata(key_map1[row][col]);
+ 208   3          }
+ 209   2        }
+ 210   1        else
+ 211   1        {
+ 212   2          uart1_senddata(key_map2[row - 3][col - 10]);
+ 213   2        }
+ 214   1      }
+ 215          /**
+ 216           * @brief   keyboard map read function.
+ 217           *
+ 218           * @param   value the value of row or col.
+ 219           *
+ 220           * @return  none.
+ 221           *
+ 222           */
+ 223          void key_readgroup(uint8_t group,uint8_t * value)
+ 224          {
+ 225   1        *value = 0xff;
+ 226   1        switch(group)
+ 227   1        {
+ 228   2          case R_GROUP_1 :
+ 229   2            if(R0 == RESET)      *value = 0u;
+ 230   2            else if(R1 == RESET) *value = 1u;
+ 231   2            else if(R2 == RESET) *value = 2u;
+ 232   2            break;
+ 233   2            
+ 234   2          case R_GROUP_2 :
+ 235   2            if(R3 == RESET)      *value = 3u;
+ 236   2            else if(R4 == RESET) *value = 4u;
+ 237   2            else if(R5 == RESET) *value = 5u;
+ 238   2            else if(R6 == RESET) *value = 6u;
+ 239   2            else if(R7 == RESET) *value = 7u;
+ 240   2            break;
+C51 COMPILER V9.59.0.0   MAIN                                                              09/08/2018 22:44:32 PAGE 5   
+
+ 241   2          
+ 242   2          case C_GROUP_1 :
+ 243   2            if(C0 == RESET)      *value = 0u;
+ 244   2            else if(C1 == RESET) *value = 1u;
+ 245   2            else if(C2 == RESET) *value = 2u;
+ 246   2            else if(C3 == RESET) *value = 3u;
+ 247   2            else if(C4 == RESET) *value = 4u;
+ 248   2            else if(C5 == RESET) *value = 5u;
+ 249   2            else if(C6 == RESET) *value = 6u;
+ 250   2            else if(C7 == RESET) *value = 7u;
+ 251   2            else if(C8 == RESET) *value = 8u;
+ 252   2            else if(C9 == RESET) *value = 9u;
+ 253   2            break;
+ 254   2          
+ 255   2          case C_GROUP_2 :
+ 256   2            if(C10 == RESET)      *value = 10u;
+ 257   2            else if(C11 == RESET) *value = 11u;
+ 258   2            else if(C12 == RESET) *value = 12u;
+ 259   2            else if(C13 == RESET) *value = 13u;
+ 260   2            break;
+ 261   2          
+ 262   2          default:break;
+ 263   2        }
+ 264   1      }
+ 265          /**
+ 266           * @brief   key map control function.
+ 267           * @note    set the row or col to low or high volage level.
+ 268           * @param   pos control the row or col group.
+ 269           *          state the volage level of set
+ 270           * @return  the pos of key.
+ 271           *
+ 272           */
+ 273          void key_setgroup(uint8_t group,uint8_t state)
+ 274          {
+ 275   1        switch(group)
+ 276   1        {
+ 277   2          case R_GROUP_1 :
+ 278   2            R0 = state;
+ 279   2            R1 = state;
+ 280   2            R2 = state;
+ 281   2            break;
+ 282   2            
+ 283   2          case R_GROUP_2 :
+ 284   2            R3 = state;
+ 285   2            R4 = state;
+ 286   2            R5 = state;
+ 287   2            R6 = state;
+ 288   2            R7 = state;
+ 289   2            break;
+ 290   2          
+ 291   2          case C_GROUP_1 :
+ 292   2            C0 = state;
+ 293   2            C1 = state;
+ 294   2            C2 = state;
+ 295   2            C3 = state;
+ 296   2            C4 = state;
+ 297   2            C5 = state;
+ 298   2            C6 = state;
+ 299   2            C7 = state; 
+ 300   2            C8 = state;
+ 301   2            C9 = state; 
+ 302   2            break;
+C51 COMPILER V9.59.0.0   MAIN                                                              09/08/2018 22:44:32 PAGE 6   
+
+ 303   2          
+ 304   2          case C_GROUP_2 :
+ 305   2            C10 = state;
+ 306   2            C11 = state;
+ 307   2            C12 = state;
+ 308   2            C13 = state;
+ 309   2            break;
+ 310   2          
+ 311   2          default:break;
+ 312   2        }
+ 313   1      }
+ 314          /*========================== usart =================================*/
+ 315          /**
+ 316           * @brief   chip uart1 init function.
+ 317           * @noet    bps115200 = 11059200/{32x[65535-(RCAP2H,RCAP2L)]}
+ 318           *          
+ 319           * @param   void.
+ 320           * @return  none.
+ 321           *
+ 322           */
+ 323          void uart1_init(void)                     
+ 324          {
+ 325   1        SCON=0x50;                              
+ 326   1        TH2=0xFF;
+ 327   1        TL2=0xFD;                           
+ 328   1        RCAP2H=0xFF;
+ 329   1        RCAP2L=0xFD;                            
+ 330   1        TCLK=1;
+ 331   1        RCLK=1;
+ 332   1        C_T2=0;
+ 333   1        EXEN2=0;
+ 334   1        TR2=1;        
+ 335   1        ES=1;
+ 336   1        EA=1;
+ 337   1      }
+ 338          /**
+ 339           * @brief   uart1 interrupt function.
+ 340           *       
+ 341           * @param   void.
+ 342           * @return  none.
+ 343           *
+ 344           */
+ 345          void uart1_intrrupt(void) interrupt 4
+ 346          {
+ 347   1        if(RI)
+ 348   1        {
+ 349   2          RI = 0;
+ 350   2          /*user codeRX*/
+ 351   2        }
+ 352   1        if(TI)
+ 353   1        {
+ 354   2          TI = 0;
+ 355   2          B_TX1_Busy = 0;
+ 356   2        }
+ 357   1      }
+ 358          /**
+ 359           * @brief   uart1 send byte function.
+ 360           *       
+ 361           * @param   dat a byte of string.
+ 362           * @return  none.
+ 363           *
+ 364           */
+C51 COMPILER V9.59.0.0   MAIN                                                              09/08/2018 22:44:32 PAGE 7   
+
+ 365          void uart1_senddata(uint8_t dat)
+ 366          {
+ 367   1          while (B_TX1_Busy);
+ 368   1          B_TX1_Busy = 1;
+ 369   1          SBUF = dat;
+ 370   1      }
+ 371          /**
+ 372           * @brief   uart1 send string funation.
+ 373           *       
+ 374           * @param   s the string of send.
+ 375           * @return  none.
+ 376           *
+ 377           */
+ 378          void uart1_sendstring(uint8_t *s)
+ 379          {
+ 380   1          while (*s)
+ 381   1          {
+ 382   2              uart1_senddata(*s++);
+ 383   2          }
+ 384   1      }
+ 385          /*======================== end of file ==============================*/
+ 386          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    690    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     62       5
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
